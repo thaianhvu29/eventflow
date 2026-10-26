@@ -9,12 +9,15 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test application
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -35,14 +38,34 @@ jobs:
         run: python -m pytest -q
 
   build:
-    name: Build Docker image
+    name: Build and publish image
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/thaianhvu29/eventflow
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build image
-        run: docker build -t eventflow:${{ github.sha }} .
+      - name: Build Docker image
+        run: |
+          docker build \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            -t "$IMAGE:$GITHUB_SHA" .
+
+      - name: Login to GHCR
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$GH_TOKEN" |
+            docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+
+      - name: Publish Docker image
+        if: github.event_name == 'push'
+        run: docker push "$IMAGE:$GITHUB_SHA"
