@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   test:
@@ -70,12 +70,13 @@ jobs:
         if: github.event_name == 'push'
         run: docker push "$IMAGE:$GITHUB_SHA"
 
+
   deploy:
     name: Deploy to Ubuntu
     needs: build
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: [self-hosted, linux, x64, eventflow-deploy]
-    timeout-minutes: 10
+    timeout-minutes: 15
 
     permissions:
       contents: read
@@ -89,7 +90,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Pull and deploy tested image
+      - name: Deploy with automatic rollback
         shell: bash
         run: |
           set -euo pipefail
@@ -102,47 +103,4 @@ jobs:
           printf '%s' "$GH_TOKEN" |
             docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
 
-          export DEPLOY_IMAGE="ghcr.io/thaianhvu29/eventflow:$GITHUB_SHA"
-          export APP_VERSION="$GITHUB_SHA"
-
-          docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml pull init web
-
-          docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml \
-            up -d --no-build --no-deps init
-
-          init_id="$(docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml ps -aq init)"
-
-          init_exit="$(docker wait "$init_id")"
-          if [ "$init_exit" != "0" ]; then
-            docker logs "$init_id"
-            exit 1
-          fi
-
-          docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml \
-            up -d --no-build --no-deps web
-
-          port="$(docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml port web 8000)"
-          port="${port##*:}"
-
-          for attempt in $(seq 1 30); do
-            if curl -fsS --max-time 3 \
-              "http://127.0.0.1:$port/health/ready" >/dev/null; then
-              if curl -fsS --max-time 3 \
-                "http://127.0.0.1:$port/health/live" |
-                python3 -c 'import json,os,sys; sys.exit(0 if json.load(sys.stdin)["version"] == os.environ["GITHUB_SHA"] else 1)'; then
-                echo "Deploy thành công: $GITHUB_SHA"
-                exit 0
-              fi
-            fi
-            sleep 3
-          done
-
-          docker compose -p eventflow \
-            --env-file .env -f compose.deploy.yaml logs --tail=80 web
-          echo "Deploy chưa đạt health check."
-          exit 1
+          bash scripts/deploy.sh "$GITHUB_SHA"
