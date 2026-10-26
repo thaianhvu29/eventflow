@@ -7,4 +7,4 @@ COPY --chown=appuser:appuser . .
 USER appuser
 EXPOSE 8000
 # One worker keeps the initial in-process Prometheus counters consistent.
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "--timeout", "30", "--access-logfile", "-", "missing_demo_app:create_app()"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "--timeout", "30", "--access-logfile", "-", "app:create_app()"]
