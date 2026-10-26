@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eventflow
+      POSTGRES_USER: eventflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventflow -d eventflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+  init:
+    build: .
+    image: eventflow:${APP_VERSION:-1.0.0}
+    environment: &app-env
+      DATABASE_URL: postgresql+psycopg://eventflow:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/eventflow
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      APP_VERSION: ${APP_VERSION:-1.0.0}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    command: ["flask", "--app", "app:create_app", "init-db"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+  web:
+    build: .
+    image: eventflow:${APP_VERSION:-1.0.0}
+    environment: *app-env
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-8080}:8000"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+volumes:
+  pgdata:

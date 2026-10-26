@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="EventFlow — tìm trải nghiệm mới, kết nối những người cùng đam mê và đặt vé sự kiện miền Trung.">
+<meta name="csrf-token" content="{{ csrf_token }}">
+<title>{% block title %}EventFlow — Đi để có chuyện kể{% endblock %}</title>
+<link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body>
+<div class="announcement">Một cuộc hẹn mới. Một câu chuyện mới. <span>Khám phá mùa sự kiện 2027 ↗</span></div>
+<header class="header"><a class="brand" href="/" aria-label="EventFlow trang chủ"><span class="brand-mark">e</span>eventflow<span class="brand-dot">.</span></a><nav aria-label="Điều hướng chính"><a class="{{ 'active' if request.path == '/' }}" href="/#explore">Khám phá</a><a class="{{ 'active' if request.path == '/tickets' }}" href="/tickets">Vé của tôi <span>↗</span></a></nav><a class="header-cta" href="/#explore">Tìm cuộc hẹn của bạn <span>↗</span></a></header>
+<main>{% block content %}{% endblock %}</main>
+<footer><div><a class="brand" href="/"><span class="brand-mark">e</span>eventflow.</a><p>Những trải nghiệm thật. Những kết nối mới.</p></div><div class="footer-right"><a href="/#explore">Khám phá sự kiện ↗</a><span>Đồ án demo · Thanh toán mô phỏng · v{{ version }}</span></div></footer>
+</body></html>
